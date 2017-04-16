@@ -18,9 +18,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.amazonaws.services.dynamodbv2.streamsadapter.model.RecordAdapter;
-import com.amazonaws.services.kinesis.clientlibrary.interfaces.IRecordProcessor;
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.IRecordProcessorCheckpointer;
-import com.amazonaws.services.kinesis.clientlibrary.types.ShutdownReason;
+import com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessor;
+import com.amazonaws.services.kinesis.clientlibrary.types.InitializationInput;
+import com.amazonaws.services.kinesis.clientlibrary.types.ProcessRecordsInput;
+import com.amazonaws.services.kinesis.clientlibrary.types.ShutdownInput;
 import com.amazonaws.services.kinesis.model.Record;
 
 /**
@@ -33,13 +35,12 @@ public abstract class StreamsRecordProcessor implements IRecordProcessor {
     /**
      * {@inheritDoc}
      */
-    public abstract void initialize(String shardId);
+    public abstract void initialize(InitializationInput initializationInput);
 
-    public void processRecords(List<Record> records,
-            IRecordProcessorCheckpointer checkpointer) {
+    public void processRecords(ProcessRecordsInput processRecordsInput) {
         List<com.amazonaws.services.dynamodbv2.model.Record> streamsRecords =
                 new ArrayList<com.amazonaws.services.dynamodbv2.model.Record>();
-        for(Record record : records) {
+        for(Record record : processRecordsInput.getRecords()) {
             if(record instanceof RecordAdapter) {
                 streamsRecords.add(((RecordAdapter) record).getInternalObject());
             } else {
@@ -49,7 +50,7 @@ public abstract class StreamsRecordProcessor implements IRecordProcessor {
                 throw new IllegalArgumentException("Record is not an instance of RecordAdapter");
             }
         }
-        processStreamsRecords(streamsRecords, checkpointer);
+        processStreamsRecords(streamsRecords, processRecordsInput.getCheckpointer());
     }
 
     /**
@@ -67,7 +68,6 @@ public abstract class StreamsRecordProcessor implements IRecordProcessor {
     /**
      * {@inheritDoc}
      */
-    public abstract void shutdown(IRecordProcessorCheckpointer checkpointer,
-            ShutdownReason reason);
+    public abstract void shutdown(ShutdownInput shutdownInput);
 
 }

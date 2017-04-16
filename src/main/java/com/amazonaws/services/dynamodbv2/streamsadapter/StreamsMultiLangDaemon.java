@@ -55,17 +55,15 @@ public class StreamsMultiLangDaemon {
             System.exit(1);
         }
 
-        ExecutorService executorService = config.getExecutorService();
-
-        Worker worker = new StreamsWorker(
-                config.getRecordProcessorFactory(),
+        final ExecutorService executorService = config.getExecutorService();
+        final Worker worker = StreamsWorkerFactory.createDynamoDbStreamsWorker(config.getRecordProcessorFactory(),
                 config.getKinesisClientLibConfiguration(),
                 executorService);
 
         // Daemon
-        MultiLangDaemon daemon = new MultiLangDaemon(worker);
+        final MultiLangDaemon daemon = new MultiLangDaemon(worker);
 
-        Future<Integer> future = executorService.submit(daemon);
+        final Future<Integer> future = executorService.submit(daemon);
         try {
             System.exit(future.get());
         } catch (InterruptedException | ExecutionException e) {

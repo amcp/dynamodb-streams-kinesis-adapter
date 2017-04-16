@@ -15,16 +15,17 @@
 package com.amazonaws.services.dynamodbv2.streamsadapter.util;
 
 import java.nio.charset.Charset;
-import java.util.List;
 
+import com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessor;
+import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason;
+import com.amazonaws.services.kinesis.clientlibrary.types.InitializationInput;
+import com.amazonaws.services.kinesis.clientlibrary.types.ProcessRecordsInput;
+import com.amazonaws.services.kinesis.clientlibrary.types.ShutdownInput;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.streamsadapter.model.RecordAdapter;
-import com.amazonaws.services.kinesis.clientlibrary.interfaces.IRecordProcessor;
-import com.amazonaws.services.kinesis.clientlibrary.interfaces.IRecordProcessorCheckpointer;
-import com.amazonaws.services.kinesis.clientlibrary.types.ShutdownReason;
 import com.amazonaws.services.kinesis.model.Record;
 
 public class ReplicatingRecordProcessor implements IRecordProcessor {
@@ -36,24 +37,23 @@ public class ReplicatingRecordProcessor implements IRecordProcessor {
     private Integer checkpointCounter = -1;
     private Integer processRecordsCallCounter;
 
-    public static int CHECKPOINT_BATCH_SIZE = 10;
+    static final int CHECKPOINT_BATCH_SIZE = 10;
 
-    public ReplicatingRecordProcessor(AmazonDynamoDB dynamoDBClient, String tableName) {
+    ReplicatingRecordProcessor(AmazonDynamoDB dynamoDBClient, String tableName) {
         this.dynamoDBClient = dynamoDBClient;
         this.tableName = tableName;
     }
 
     @Override
-    public void initialize(String shardId) {
+    public void initialize(InitializationInput initializationInput) {
         checkpointCounter = 0;
         processRecordsCallCounter = 0;
     }
 
     @Override
-    public void processRecords(List<Record> records,
-            IRecordProcessorCheckpointer checkpointer) {
+    public void processRecords(ProcessRecordsInput processRecordsInput) {
         processRecordsCallCounter++;
-        for(Record record : records) {
+        for(Record record : processRecordsInput.getRecords()) {
             String data = new String(record.getData().array(), Charset.forName("UTF-8"));
             LOG.info("Got record: " + data);
             if(record instanceof RecordAdapter) {
@@ -70,7 +70,7 @@ public class ReplicatingRecordProcessor implements IRecordProcessor {
             checkpointCounter += 1;
             if(checkpointCounter % CHECKPOINT_BATCH_SIZE == 0) {
                 try {
-                    checkpointer.checkpoint(record.getSequenceNumber());
+                    processRecordsInput.getCheckpointer().checkpoint(record.getSequenceNumber());
                 } catch(Exception e) {
                     e.printStackTrace();
                 }
@@ -80,22 +80,21 @@ public class ReplicatingRecordProcessor implements IRecordProcessor {
     }
 
     @Override
-    public void shutdown(IRecordProcessorCheckpointer checkpointer,
-            ShutdownReason reason) {
-        if(reason == ShutdownReason.TERMINATE) {
+    public void shutdown(ShutdownInput shutdownInput) {
+        if(shutdownInput.getShutdownReason() == ShutdownReason.TERMINATE) {
             try {
-                checkpointer.checkpoint();
+                shutdownInput.getCheckpointer().checkpoint();
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
     }
 
-    public int getNumRecordsProcessed() {
+    int getNumRecordsProcessed() {
         return checkpointCounter;
     }
 
-    public int getNumProcessRecordsCalls() {
+    int getNumProcessRecordsCalls() {
         return processRecordsCallCounter;
     }
 

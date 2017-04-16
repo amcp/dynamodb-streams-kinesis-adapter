@@ -20,15 +20,17 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.amazonaws.services.kinesis.clientlibrary.interfaces.IRecordProcessorCheckpointer;
+import com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessor;
+import com.amazonaws.services.kinesis.clientlibrary.types.InitializationInput;
+import com.amazonaws.services.kinesis.clientlibrary.types.ProcessRecordsInput;
+import com.amazonaws.services.kinesis.clientlibrary.types.ShutdownInput;
 import org.junit.Before;
 import org.junit.Test;
 
 import com.amazonaws.services.dynamodbv2.model.Record;
 import com.amazonaws.services.dynamodbv2.model.StreamRecord;
 import com.amazonaws.services.dynamodbv2.streamsadapter.model.RecordAdapter;
-import com.amazonaws.services.kinesis.clientlibrary.interfaces.IRecordProcessor;
-import com.amazonaws.services.kinesis.clientlibrary.interfaces.IRecordProcessorCheckpointer;
-import com.amazonaws.services.kinesis.clientlibrary.types.ShutdownReason;
 
 public class StreamsRecordProcessorTest {
 
@@ -49,7 +51,7 @@ public class StreamsRecordProcessorTest {
         List<com.amazonaws.services.kinesis.model.Record> recordList =
                 new ArrayList<com.amazonaws.services.kinesis.model.Record>();
         recordList.add(adapter);
-        recordProcessor.processRecords(recordList, null);
+        recordProcessor.processRecords(new ProcessRecordsInput().withRecords(recordList));
     }
 
     @Test(expected=IllegalArgumentException.class)
@@ -57,25 +59,24 @@ public class StreamsRecordProcessorTest {
         List<com.amazonaws.services.kinesis.model.Record> recordList =
                 new ArrayList<com.amazonaws.services.kinesis.model.Record>();
         recordList.add(new com.amazonaws.services.kinesis.model.Record());
-        recordProcessor.processRecords(recordList, null);
+        recordProcessor.processRecords(new ProcessRecordsInput().withRecords(recordList));
     }
 
     private class SimpleStreamsRecordProcessor extends StreamsRecordProcessor {
 
         @Override
-        public void initialize(String shardId) {
+        public void initialize(InitializationInput initializationInput) {
 
         }
 
         @Override
-        public void processStreamsRecords(List<Record> records,
-                IRecordProcessorCheckpointer checkpointer) {
+        public void processStreamsRecords(List<com.amazonaws.services.dynamodbv2.model.Record> records,
+                                          IRecordProcessorCheckpointer checkpointer) {
             assertEquals(testRecord, records.get(0));
         }
 
         @Override
-        public void shutdown(IRecordProcessorCheckpointer checkpointer,
-                ShutdownReason reason) {
+        public void shutdown(ShutdownInput shutdownInput) {
 
         }
 
